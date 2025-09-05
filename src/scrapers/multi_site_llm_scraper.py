@@ -12,6 +12,7 @@ from .llm_engineer_scraper import LLMEngineerScraper
 from .indeed_llm_scraper import IndeedLLMScraper
 from .linkedin_llm_scraper import LinkedInLLMScraper
 from .glassdoor_llm_scraper import GlassdoorLLMScraper
+from .angellist_llm_scraper import AngelListLLMScraper
 from .smart_job_filter import JobFilter
 from ..models.job_models import JobListing, JobType, RemoteType, ScrapingResult
 
@@ -62,8 +63,7 @@ class MultiSiteLLMScraper:
             "indeed": IndeedLLMScraper(headless=headless, strict_mode=strict_mode),
             "linkedin": LinkedInLLMScraper(headless=headless, strict_mode=strict_mode),
             "glassdoor": GlassdoorLLMScraper(headless=headless, strict_mode=strict_mode),
-            # Future implementations:
-            # "angellist": AngelListLLMScraper(headless=headless, strict_mode=strict_mode),
+            "angellist": AngelListLLMScraper(headless=headless, strict_mode=strict_mode),
         }
         
         # Site-specific configurations
@@ -97,11 +97,11 @@ class MultiSiteLLMScraper:
                 "specialties": ["salary_info", "company_reviews", "interview_insights"]
             },
             "angellist": {
-                "enabled": False,  # Not implemented yet
-                "max_pages": 2,
+                "enabled": True,   # Now implemented!
+                "max_pages": 2,    # Conservative for startup platform
                 "priority": 5,
                 "expected_results": "startup_focused",
-                "specialties": ["startups", "equity", "early_stage"]
+                "specialties": ["startups", "equity", "early_stage", "founding_engineer"]
             }
         }
     
