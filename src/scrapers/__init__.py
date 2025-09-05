@@ -6,6 +6,7 @@ from .filtered_ziprecruiter_scraper import FilteredZipRecruiterScraper
 from .llm_engineer_scraper import LLMEngineerScraper, create_llm_engineer_scraper, create_senior_llm_scraper
 from .indeed_llm_scraper import IndeedLLMScraper, create_indeed_llm_scraper
 from .linkedin_llm_scraper import LinkedInLLMScraper, create_linkedin_llm_scraper
+from .glassdoor_llm_scraper import GlassdoorLLMScraper, create_glassdoor_llm_scraper
 from .multi_site_llm_scraper import MultiSiteLLMScraper, create_multi_site_llm_scraper
 from .smart_job_filter import SmartJobFilter, JobFilter, FilterPresets
 
@@ -20,6 +21,8 @@ __all__ = [
     'create_indeed_llm_scraper',
     'LinkedInLLMScraper',
     'create_linkedin_llm_scraper',
+    'GlassdoorLLMScraper',
+    'create_glassdoor_llm_scraper',
     'MultiSiteLLMScraper',
     'create_multi_site_llm_scraper',
     'SmartJobFilter',
