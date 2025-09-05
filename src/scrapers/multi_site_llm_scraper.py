@@ -52,10 +52,12 @@ class MultiSiteLLMScraper:
         self.strict_mode = strict_mode
         
         # Initialize available scrapers
+        from .indeed_llm_scraper import IndeedLLMScraper
+        
         self.scrapers = {
             "ziprecruiter": LLMEngineerScraper(headless=headless, strict_mode=strict_mode),
+            "indeed": IndeedLLMScraper(headless=headless, strict_mode=strict_mode),
             # Future implementations:
-            # "indeed": IndeedLLMScraper(headless=headless, strict_mode=strict_mode),
             # "linkedin": LinkedInLLMScraper(headless=headless, strict_mode=strict_mode),
             # "glassdoor": GlassdoorLLMScraper(headless=headless, strict_mode=strict_mode),
             # "angellist": AngelListLLMScraper(headless=headless, strict_mode=strict_mode),
@@ -71,8 +73,8 @@ class MultiSiteLLMScraper:
                 "specialties": ["general", "remote", "contract"]
             },
             "indeed": {
-                "enabled": False,  # Not implemented yet
-                "max_pages": 5,
+                "enabled": True,  # Now implemented!
+                "max_pages": 3,  # Conservative for testing
                 "priority": 2,
                 "expected_results": "high",
                 "specialties": ["volume", "local", "enterprise"]
@@ -171,6 +173,23 @@ class MultiSiteLLMScraper:
                         "salary_range": result.get("salary_range", {}),
                         "pages_scraped": pages,
                         "status": "success"
+                    }
+                
+                elif site_name == "indeed":
+                    # Use Indeed-specific search method
+                    result = await scraper.search_llm_jobs(
+                        location=location,
+                        max_pages=pages,
+                        seniority_level=seniority_level
+                    )
+                    
+                    jobs = result.get("jobs", [])
+                    site_metadata = {
+                        "jobs_found": len(jobs),
+                        "status": result.get("status", "success"),
+                        "message": result.get("message", ""),
+                        "expected_performance": result.get("expected_performance", {}),
+                        "pages_scraped": pages
                     }
                 
                 else:
