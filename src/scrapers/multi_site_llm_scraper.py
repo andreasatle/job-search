@@ -9,6 +9,8 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from .llm_engineer_scraper import LLMEngineerScraper
+from .indeed_llm_scraper import IndeedLLMScraper
+from .linkedin_llm_scraper import LinkedInLLMScraper
 from .smart_job_filter import JobFilter
 from ..models.job_models import JobListing, JobType, RemoteType, ScrapingResult
 
@@ -57,8 +59,8 @@ class MultiSiteLLMScraper:
         self.scrapers = {
             "ziprecruiter": LLMEngineerScraper(headless=headless, strict_mode=strict_mode),
             "indeed": IndeedLLMScraper(headless=headless, strict_mode=strict_mode),
+            "linkedin": LinkedInLLMScraper(headless=headless, strict_mode=strict_mode),
             # Future implementations:
-            # "linkedin": LinkedInLLMScraper(headless=headless, strict_mode=strict_mode),
             # "glassdoor": GlassdoorLLMScraper(headless=headless, strict_mode=strict_mode),
             # "angellist": AngelListLLMScraper(headless=headless, strict_mode=strict_mode),
         }
@@ -80,8 +82,8 @@ class MultiSiteLLMScraper:
                 "specialties": ["volume", "local", "enterprise"]
             },
             "linkedin": {
-                "enabled": False,  # Not implemented yet
-                "max_pages": 3,
+                "enabled": True,   # Now implemented!
+                "max_pages": 2,    # Conservative for LinkedIn
                 "priority": 3,
                 "expected_results": "high_quality",
                 "specialties": ["senior", "remote", "tech_companies"]
