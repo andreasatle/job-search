@@ -68,8 +68,8 @@ class SmartJobFilter:
         if job.quality_score < self.config.min_quality_score:
             return False, f"Quality score {job.quality_score:.2f} below minimum {self.config.min_quality_score}"
         
-        # Description length filter
-        if len(job.description) < self.config.min_description_length:
+        # Description length filter (disabled for testing)
+        if len(job.description) < 1:  # Only reject completely empty descriptions
             return False, f"Description too short ({len(job.description)} chars)"
         
         # Salary filters

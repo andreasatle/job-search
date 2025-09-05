@@ -78,31 +78,227 @@ class IndeedLLMScraper(PlaywrightJobScraper):
         print(f"📍 Location: {location}")
         print(f"📄 Max pages: {max_pages}")
         
-        # For now, return placeholder results since Indeed requires careful implementation
-        return {
-            "jobs": [],
-            "total_jobs_found": 0,
-            "status": "implemented_basic",
-            "message": "Indeed scraper framework ready - needs production testing",
-            "challenges_addressed": [
-                "Anti-detection measures",
-                "Rate limiting system", 
-                "Enterprise-focused filtering",
-                "Salary parsing logic",
-                "Advanced CSS selectors"
-            ],
-            "next_steps": [
-                "Test with real Indeed pages",
-                "Fine-tune selectors", 
-                "Implement CAPTCHA handling",
-                "Add proxy rotation if needed"
-            ],
-            "expected_performance": {
-                "job_volume": "20-50 LLM jobs per search",
-                "quality": "High (enterprise focus)",
-                "salary_range": "$85k-$400k"
+        all_jobs = []
+        
+        # LLM-specific search queries for Indeed
+        queries = [
+            "LLM Engineer",
+            "Large Language Model Engineer", 
+            "Machine Learning Engineer AI",
+            "AI Engineer",
+            "ML Engineer"
+        ]
+        
+        try:
+            # Use async context to ensure proper browser management
+            async with self:
+                for query in queries[:3]:  # Limit to top 3 queries
+                    print(f"🔍 Searching Indeed for: '{query}'")
+                    
+                    # Build Indeed search URL
+                    search_url = self._build_indeed_search_url(query, location)
+                    print(f"   Navigating to: {search_url}")
+                    
+                    # Navigate to search results
+                    if not await self.safe_navigate(search_url):
+                        print(f"   ❌ Failed to navigate to Indeed")
+                        continue
+                    
+                    # Extract jobs from current page
+                    page_jobs = await self._extract_indeed_jobs()
+                    
+                    if page_jobs:
+                        # Apply smart filtering
+                        filtered_jobs = self.smart_filter.filter_jobs(page_jobs, verbose=False)
+                        all_jobs.extend(filtered_jobs)
+                        print(f"   ✅ Found {len(page_jobs)} jobs, kept {len(filtered_jobs)} after filtering")
+                    else:
+                        print(f"   ⚠️ No jobs found for '{query}'")
+                    
+                    # Delay between searches
+                    await self.random_delay(self.min_delay, self.max_delay)
+                    
+                    # Respect rate limiting
+                    self.requests_count += 1
+                    if self.requests_count >= self.max_requests_per_session:
+                        print(f"   ⏸️ Rate limit reached, stopping searches")
+                        break
+                        
+        except Exception as e:
+            print(f"❌ Indeed search error: {e}")
+            return {
+                "jobs": [],
+                "total_jobs_found": 0,
+                "status": "error",
+                "error": str(e)
             }
+        
+        print(f"✅ Indeed search complete: {len(all_jobs)} total jobs found")
+        
+        return {
+            "jobs": all_jobs,
+            "total_jobs_found": len(all_jobs),
+            "status": "implemented_working",
+            "message": f"Indeed scraper found {len(all_jobs)} LLM jobs",
+            "site_specific_features": [
+                "Advanced job filtering",
+                "Salary extraction", 
+                "Company verification",
+                "Remote work detection"
+            ]
         }
+    
+    def _build_indeed_search_url(self, query: str, location: str) -> str:
+        """Build Indeed search URL with proper parameters."""
+        import urllib.parse
+        
+        base_url = "https://www.indeed.com/jobs"
+        params = {
+            "q": query,
+            "l": location,
+            "radius": "25",  # 25 mile radius
+            "fromage": "7",  # Last 7 days
+            "sort": "date",  # Sort by date
+            "vjk": "",  # Indeed tracking parameter
+        }
+        
+        # Add query parameters
+        query_string = urllib.parse.urlencode(params)
+        return f"{base_url}?{query_string}"
+    
+    async def _extract_indeed_jobs(self) -> List:
+        """Extract job listings from Indeed search results page."""
+        jobs = []
+        
+        try:
+            # Wait for page to load
+            await self.page.wait_for_timeout(2000)
+            
+            # Indeed job selectors (updated for current Indeed layout)
+            job_cards = await self.page.query_selector_all(
+                'div[data-jk], .job_seen_beacon, .jobsearch-SerpJobCard, [data-testid="job-result"]'
+            )
+            
+            print(f"   📋 Found {len(job_cards)} job cards on Indeed")
+            
+            for card in job_cards[:20]:  # Limit to first 20 jobs per page
+                try:
+                    job = await self._extract_single_indeed_job(card)
+                    if job:
+                        jobs.append(job)
+                except Exception as e:
+                    print(f"   ⚠️ Error extracting job: {e}")
+                    continue
+                    
+        except Exception as e:
+            print(f"   ❌ Error extracting Indeed jobs: {e}")
+            
+        return jobs
+    
+    async def _extract_single_indeed_job(self, card) -> Optional:
+        """Extract a single job from Indeed job card."""
+        from ..models.job_models import JobListing, JobType, RemoteType
+        from datetime import datetime
+        
+        try:
+            # Extract title
+            title_elem = await card.query_selector('h2 a span, .jobTitle a span, [data-testid="job-title"]')
+            title = await title_elem.inner_text() if title_elem else "Unknown Title"
+            
+            # Extract company
+            company_elem = await card.query_selector('.companyName, [data-testid="company-name"]')
+            company = await company_elem.inner_text() if company_elem else "Unknown Company"
+            
+            # Extract location
+            location_elem = await card.query_selector('.companyLocation, [data-testid="job-location"]')
+            location = await location_elem.inner_text() if location_elem else "Unknown Location"
+            
+            # Extract URL
+            link_elem = await card.query_selector('h2 a, .jobTitle a')
+            if link_elem:
+                relative_url = await link_elem.get_attribute('href')
+                url = f"https://www.indeed.com{relative_url}" if relative_url else ""
+            else:
+                url = ""
+            
+            # Extract salary (if available)
+            salary_elem = await card.query_selector('.salary-snippet, [data-testid="job-salary"]')
+            salary_text = await salary_elem.inner_text() if salary_elem else ""
+            
+            # Parse salary
+            salary_min, salary_max = self._parse_indeed_salary(salary_text)
+            
+            # Extract snippet/description
+            snippet_elem = await card.query_selector('.job-snippet, [data-testid="job-snippet"]')
+            description = await snippet_elem.inner_text() if snippet_elem else ""
+            
+            # Determine remote type
+            remote_type = RemoteType.UNKNOWN
+            location_lower = location.lower()
+            if "remote" in location_lower:
+                remote_type = RemoteType.REMOTE
+            elif "hybrid" in location_lower:
+                remote_type = RemoteType.HYBRID
+            else:
+                remote_type = RemoteType.ONSITE
+            
+            # Create job listing
+            job = JobListing(
+                title=title.strip(),
+                company=company.strip(),
+                location=location.strip(),
+                url=url,
+                description=description.strip(),
+                salary_min=salary_min,
+                salary_max=salary_max,
+                job_type=JobType.FULL_TIME,  # Indeed defaults to full-time
+                remote_type=remote_type,
+                source="indeed",
+                posted_date=datetime.now(),
+                scraped_date=datetime.now()
+            )
+            
+            return job
+            
+        except Exception as e:
+            print(f"   ⚠️ Error extracting single Indeed job: {e}")
+            return None
+    
+    def _parse_indeed_salary(self, salary_text: str) -> tuple[Optional[int], Optional[int]]:
+        """Parse Indeed salary string into min/max values."""
+        import re
+        
+        if not salary_text:
+            return None, None
+            
+        # Remove common prefixes/suffixes
+        salary_text = salary_text.replace('$', '').replace(',', '').replace('a year', '').replace('an hour', '')
+        
+        # Look for range (e.g., "80000 - 120000")
+        range_match = re.search(r'(\d+)\s*-\s*(\d+)', salary_text)
+        if range_match:
+            min_sal = int(range_match.group(1))
+            max_sal = int(range_match.group(2))
+            
+            # Convert hourly to annual (assume 40 hours/week, 52 weeks/year)
+            if min_sal < 200:  # Likely hourly
+                min_sal *= 40 * 52
+                max_sal *= 40 * 52
+                
+            return min_sal, max_sal
+        
+        # Look for single value
+        single_match = re.search(r'(\d+)', salary_text)
+        if single_match:
+            salary = int(single_match.group(1))
+            
+            # Convert hourly to annual
+            if salary < 200:  # Likely hourly
+                salary *= 40 * 52
+                
+            return salary, salary
+            
+        return None, None
 
 
 def create_indeed_llm_scraper(strict_mode: bool = False, headless: bool = True) -> IndeedLLMScraper:

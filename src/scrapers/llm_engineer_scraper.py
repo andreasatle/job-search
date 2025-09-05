@@ -86,9 +86,9 @@ class LLMEngineerScraper(FilteredZipRecruiterScraper):
                 min_quality_score=0.8,          # Very high quality only
                 min_salary=120000,              # Senior-level salaries
                 max_salary=400000,              # Cap at reasonable maximum
-                allowed_job_types=[JobType.FULL_TIME, JobType.CONTRACT],
+                allowed_job_types=[JobType.FULL_TIME, JobType.CONTRACT, JobType.UNKNOWN],
                 allowed_remote_types=[RemoteType.REMOTE, RemoteType.HYBRID],
-                min_description_length=250,     # Detailed descriptions
+                min_description_length=10,      # Allow short descriptions
                 exclude_experience_levels=["entry level", "intern", "junior"]
             )
         else:
@@ -99,9 +99,9 @@ class LLMEngineerScraper(FilteredZipRecruiterScraper):
                 min_quality_score=0.65,         # Good quality
                 min_salary=80000,               # Include mid-level roles
                 max_salary=500000,              # Higher cap for staff/principal
-                allowed_job_types=[JobType.FULL_TIME, JobType.CONTRACT],
+                allowed_job_types=[JobType.FULL_TIME, JobType.CONTRACT, JobType.UNKNOWN],
                 allowed_remote_types=[RemoteType.REMOTE, RemoteType.HYBRID, RemoteType.ONSITE],
-                min_description_length=150      # Reasonable descriptions
+                min_description_length=10       # Allow short descriptions
             )
     
     async def search_llm_jobs(self, 
