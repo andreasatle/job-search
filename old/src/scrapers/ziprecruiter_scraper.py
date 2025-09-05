@@ -12,10 +12,24 @@ from ..models.job_models import JobListing, JobType, RemoteType, ScrapingResult
 class ZipRecruiterScraper(PlaywrightJobScraper):
     """Scraper specifically for ZipRecruiter job listings."""
     
-    def __init__(self, headless: bool = True):
+    def __init__(self, headless: bool = True, job_filter: Optional['JobFilter'] = None, use_llm: bool = False):
         super().__init__(headless=headless, slow_mo=200)
         self.base_url = "https://www.ziprecruiter.com"
         self.source_name = "ziprecruiter"
+        
+        # Import here to avoid circular imports
+        from .smart_job_filter import SmartJobFilter, FilterPresets
+        
+        # Set up job filtering
+        if job_filter is None:
+            # Use default software engineer filter with LLM option
+            job_filter = FilterPresets.software_engineer(use_llm=use_llm)
+        elif use_llm and not job_filter.use_llm:
+            # Enable LLM on provided filter if requested
+            job_filter.use_llm = True
+        
+        self.job_filter = SmartJobFilter(job_filter)
+        self.use_smart_filtering = True
     
     async def search_houston_jobs(self, 
                                  query: str = "", 
@@ -88,16 +102,29 @@ class ZipRecruiterScraper(PlaywrightJobScraper):
             errors.append(f"Scraping error: {str(e)}")
             print(f"❌ Error during scraping: {e}")
         
+        # Apply smart filtering if enabled
+        filtered_jobs = jobs
+        if self.use_smart_filtering and self.job_filter and jobs:
+            print(f"🎯 Applying smart filtering to {len(jobs)} jobs...")
+            filtered_jobs = self.job_filter.filter_jobs(jobs, verbose=True)
+            print(f"📊 Filtering result: {len(jobs)} → {len(filtered_jobs)} jobs")
+        
         result = ScrapingResult(
             source=self.source_name,
-            jobs=jobs,
-            success=len(jobs) > 0,
+            jobs=filtered_jobs,
+            success=len(filtered_jobs) > 0,
             total_found=total_found,
             pages_scraped=pages_scraped,
-            errors=errors
+            errors=errors,
+            metadata={
+                "jobs_before_filtering": len(jobs),
+                "jobs_after_filtering": len(filtered_jobs),
+                "filtering_enabled": self.use_smart_filtering,
+                "llm_filtering": self.job_filter.config.use_llm if self.job_filter else False
+            }
         )
         
-        print(f"✅ Scraping completed: {len(jobs)} jobs from {pages_scraped} pages")
+        print(f"✅ Scraping completed: {len(filtered_jobs)} jobs from {pages_scraped} pages")
         print(f"📊 Success rate: {result.success_rate:.1%}")
         print(f"⭐ Average quality: {result.average_quality:.2f}")
         
@@ -505,41 +532,157 @@ class ZipRecruiterScraper(PlaywrightJobScraper):
             return False
 
 
+# Convenience functions for different filtering modes
+def create_ziprecruiter_scraper(use_llm: bool = False, headless: bool = True, 
+                               filter_preset: str = "software_engineer") -> ZipRecruiterScraper:
+    """
+    Create a ZipRecruiter scraper with specified filtering.
+    
+    Args:
+        use_llm: Enable LLM-based filtering for better job relevance
+        headless: Run browser in headless mode
+        filter_preset: Available presets:
+            - "software_engineer": General software engineering roles
+            - "data_scientist": Data science and analytics positions  
+            - "remote_only": Remote work only positions
+            - "senior_level": Senior/lead/principal level roles
+            - "startup_roles": Startup and tech company positions
+            - "high_paying": High-salary positions ($120k+)
+            - "llm_engineer": AI/ML and LLM engineering (auto-enables LLM)
+            - "llm_engineer_strict": Senior AI/ML roles with strict requirements
+    """
+    from .smart_job_filter import FilterPresets
+    
+    # Map preset names to FilterPresets methods
+    preset_map = {
+        "software_engineer": lambda: FilterPresets.software_engineer(use_llm=use_llm),
+        "data_scientist": lambda: FilterPresets.data_scientist(use_llm=use_llm),
+        "remote_only": lambda: FilterPresets.remote_only(),
+        "senior_level": lambda: FilterPresets.senior_level(use_llm=use_llm),
+        "startup_roles": lambda: FilterPresets.startup_roles(),
+        "high_paying": lambda: FilterPresets.high_paying(use_llm=use_llm),
+        "llm_engineer": lambda: FilterPresets.llm_engineer(strict_mode=False),
+        "llm_engineer_strict": lambda: FilterPresets.llm_engineer(strict_mode=True),
+    }
+    
+    if filter_preset not in preset_map:
+        available_presets = ", ".join(preset_map.keys())
+        raise ValueError(f"Unknown filter preset '{filter_preset}'. Available: {available_presets}")
+    
+    job_filter = preset_map[filter_preset]()
+    
+    return ZipRecruiterScraper(headless=headless, job_filter=job_filter, use_llm=use_llm)
+
+
+def list_available_presets():
+    """Print all available filter presets with descriptions."""
+    presets = {
+        "software_engineer": "General software engineering roles (Python, JS, React, etc.)",
+        "data_scientist": "Data science and analytics positions (ML, SQL, Python)",
+        "remote_only": "Remote work only positions",
+        "senior_level": "Senior/lead/principal level roles ($100k+)",
+        "startup_roles": "Startup and tech company positions (SaaS, cloud, APIs)",
+        "high_paying": "High-salary positions ($120k+)",
+        "llm_engineer": "AI/ML and LLM engineering (auto-enables LLM filtering)",
+        "llm_engineer_strict": "Senior AI/ML roles with strict requirements ($120k+)",
+    }
+    
+    print("🎯 Available Filter Presets:")
+    print("=" * 40)
+    for preset, description in presets.items():
+        print(f"📋 {preset}")
+        print(f"   {description}")
+        print(f"   Usage: create_ziprecruiter_scraper(filter_preset='{preset}')")
+        print()
+    
+    return list(presets.keys())
+
+
 # Example usage and testing
 async def test_ziprecruiter_scraper():
-    """Test the ZipRecruiter scraper."""
+    """Test the ZipRecruiter scraper with different filtering modes."""
     print("🏢 Testing ZipRecruiter Scraper")
     print("=" * 50)
     
-    async with ZipRecruiterScraper(headless=True) as scraper:
-        # Test with a specific search
-        result = await scraper.search_houston_jobs(
-            query="software engineer",
-            max_pages=2
-        )
+    # Test configurations
+    test_configs = [
+        ("Traditional Filtering", False, "software_engineer"),
+        ("LLM-Enhanced Filtering", True, "software_engineer"),
+        ("LLM Engineer Specialist", False, "llm_engineer"),  # Already has LLM enabled
+    ]
+    
+    for config_name, use_llm, preset in test_configs:
+        print(f"\n🔍 Testing: {config_name}")
+        print("-" * 40)
         
-        print(f"\n📊 Scraping Results:")
-        print(f"Success: {result.success}")
-        print(f"Total found: {result.total_found}")
-        print(f"Jobs scraped: {len(result.jobs)}")
-        print(f"Pages scraped: {result.pages_scraped}")
-        print(f"Success rate: {result.success_rate:.1%}")
-        print(f"Average quality: {result.average_quality:.2f}")
-        
-        if result.errors:
-            print(f"\n❌ Errors: {result.errors}")
-        
-        # Show sample jobs
-        print(f"\n📋 Sample Jobs:")
-        for i, job in enumerate(result.jobs[:3], 1):
-            print(f"\n{i}. {job.title}")
-            print(f"   Company: {job.company}")
-            print(f"   Location: {job.location}")
-            print(f"   Salary: {job.salary_text or 'Not specified'}")
-            print(f"   Type: {job.job_type.value}")
-            print(f"   Remote: {job.remote_type.value}")
-            print(f"   Quality: {job.quality_score:.2f}")
-            print(f"   URL: {job.url[:60]}...")
+        try:
+            scraper = create_ziprecruiter_scraper(
+                use_llm=use_llm, 
+                headless=True, 
+                filter_preset=preset
+            )
+            
+            async with scraper:
+                result = await scraper.search_houston_jobs(
+                    query="software engineer" if preset != "llm_engineer" else "LLM engineer",
+                    max_pages=1  # Limited for testing
+                )
+                
+                print(f"\n📊 {config_name} Results:")
+                print(f"Success: {result.success}")
+                print(f"Total found: {result.total_found}")
+                print(f"Jobs scraped: {len(result.jobs)}")
+                print(f"Pages scraped: {result.pages_scraped}")
+                
+                if result.metadata:
+                    print(f"Before filtering: {result.metadata.get('jobs_before_filtering', 'N/A')}")
+                    print(f"After filtering: {result.metadata.get('jobs_after_filtering', 'N/A')}")
+                    print(f"LLM enabled: {result.metadata.get('llm_filtering', False)}")
+                
+                # Show sample jobs
+                if result.jobs:
+                    print(f"\n📋 Top Jobs:")
+                    for i, job in enumerate(result.jobs[:2], 1):
+                        print(f"\n{i}. {job.title} at {job.company}")
+                        print(f"   💰 {job.salary_text or 'Salary not specified'}")
+                        print(f"   🏠 {job.remote_type.value} | ⭐ {job.quality_score:.2f}")
+                
+        except Exception as e:
+            print(f"❌ Error testing {config_name}: {e}")
+
+
+async def demo_llm_vs_traditional():
+    """Compare LLM vs traditional filtering side by side."""
+    print("🤖 LLM vs Traditional Filtering Comparison")
+    print("=" * 50)
+    
+    query = "software engineer"
+    
+    # Traditional scraper
+    print("\n1️⃣ Traditional Keyword Filtering:")
+    traditional_scraper = create_ziprecruiter_scraper(use_llm=False, filter_preset="software_engineer")
+    
+    async with traditional_scraper:
+        traditional_result = await traditional_scraper.search_houston_jobs(query=query, max_pages=1)
+    
+    # LLM-enhanced scraper  
+    print("\n2️⃣ LLM-Enhanced Filtering:")
+    llm_scraper = create_ziprecruiter_scraper(use_llm=True, filter_preset="software_engineer")
+    
+    async with llm_scraper:
+        llm_result = await llm_scraper.search_houston_jobs(query=query, max_pages=1)
+    
+    # Comparison
+    print(f"\n📊 Comparison Results:")
+    print(f"Traditional: {len(traditional_result.jobs)} jobs kept")
+    print(f"LLM-Enhanced: {len(llm_result.jobs)} jobs kept")
+    print(f"Quality improvement: {llm_result.average_quality - traditional_result.average_quality:+.2f}")
+    
+    print(f"\n💡 Key Insights:")
+    print(f"• Traditional filtering relies on keyword matching")
+    print(f"• LLM filtering adds semantic understanding and quality assessment")
+    print(f"• LLM can catch spam, irrelevant roles, and low-quality postings")
+    print(f"• Higher quality scores indicate better job relevance")
 
 
 if __name__ == "__main__":

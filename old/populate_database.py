@@ -5,7 +5,7 @@ Starting with ZipRecruiter (proven working) and expanding from there.
 """
 
 import asyncio
-from src.scrapers import create_llm_engineer_scraper
+from src.scrapers.ziprecruiter_scraper import create_ziprecruiter_scraper
 from src.database.job_vector_store import JobVectorStore
 
 
@@ -36,11 +36,20 @@ async def populate_database_ziprecruiter(location="Houston, TX", max_pages=2):
     print(f"   Please wait - this may take 1-2 minutes...")
     
     try:
-        # Create and run ZipRecruiter scraper with proper async context
-        async with create_llm_engineer_scraper() as scraper:
-            result = await scraper.search_llm_jobs(location=location, max_pages=max_pages)
+        # Create and run ZipRecruiter scraper with LLM filtering
+        scraper = create_ziprecruiter_scraper(
+            use_llm=True, 
+            filter_preset="llm_engineer",  # Use LLM-specific filtering
+            headless=True
+        )
+        
+        async with scraper:
+            result = await scraper.search_houston_jobs(
+                query="LLM Engineer AI ML", 
+                max_pages=max_pages
+            )
             
-            jobs = result.get("jobs", [])
+            jobs = result.jobs
             print(f"\n📊 ZipRecruiter Search Results:")
             print(f"   🎯 Jobs found: {len(jobs)}")
             

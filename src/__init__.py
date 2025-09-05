@@ -1,1 +1,1 @@
-"""Houston Job Search - Main package."""
+# Clean job search system
