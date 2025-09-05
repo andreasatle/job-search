@@ -5,6 +5,7 @@ import hashlib
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 import numpy as np
+from dotenv import load_dotenv
 
 import chromadb
 from chromadb.config import Settings
@@ -12,6 +13,9 @@ import openai
 from openai import OpenAI
 
 from job_models import JobListing, ScrapingResult
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 class JobVectorStore:
@@ -159,26 +163,37 @@ class JobVectorStore:
             print(f"🔄 Creating embedding for: {job.title} at {job.company}")
             embedding = self._get_embedding(job_text)
             
-            # Prepare metadata
+            # Prepare metadata - ChromaDB doesn't accept None values
             metadata = {
                 "title": job.title,
                 "company": job.company,
                 "location": job.location,
                 "source": job.source,
                 "url": job.url,
-                "job_type": job.job_type.value if job.job_type else None,
-                "remote_type": job.remote_type.value if job.remote_type else None,
-                "salary_min": job.salary_min,
-                "salary_max": job.salary_max,
-                "salary_text": job.salary_text,
-                "skills": json.dumps(job.skills) if job.skills else None,
-                "experience_level": job.experience_level,
-                "education": job.education,
-                "quality_score": job.quality_score,
-                "posted_date": job.posted_date.isoformat() if job.posted_date else None,
                 "scraped_date": job.scraped_date.isoformat(),
-                "external_apply": job.external_apply
+                "external_apply": job.external_apply,
+                "quality_score": job.quality_score
             }
+            
+            # Add optional fields only if they have values
+            if job.job_type:
+                metadata["job_type"] = job.job_type.value
+            if job.remote_type:
+                metadata["remote_type"] = job.remote_type.value
+            if job.salary_min:
+                metadata["salary_min"] = job.salary_min
+            if job.salary_max:
+                metadata["salary_max"] = job.salary_max
+            if job.salary_text:
+                metadata["salary_text"] = job.salary_text
+            if job.skills:
+                metadata["skills"] = json.dumps(job.skills)
+            if job.experience_level:
+                metadata["experience_level"] = job.experience_level
+            if job.education:
+                metadata["education"] = job.education
+            if job.posted_date:
+                metadata["posted_date"] = job.posted_date.isoformat()
             
             # Add to collection
             self.collection.add(

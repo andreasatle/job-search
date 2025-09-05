@@ -2,10 +2,14 @@
 import os
 import asyncio
 from datetime import datetime
+from dotenv import load_dotenv
 
 from job_vector_store import JobVectorStore
 from job_models import JobListing, JobType, RemoteType
 from ziprecruiter_scraper import ZipRecruiterScraper
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 def create_sample_jobs() -> list[JobListing]:
