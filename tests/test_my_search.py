@@ -1,6 +1,6 @@
 """Custom test script for your specific job searches."""
 import asyncio
-from ziprecruiter_scraper import ZipRecruiterScraper
+from src.scrapers.ziprecruiter_scraper import ZipRecruiterScraper
 
 
 async def test_my_job_search():

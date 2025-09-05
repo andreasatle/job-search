@@ -1,6 +1,6 @@
 """Test script for the Playwright scraper."""
 import asyncio
-from playwright_scraper import PlaywrightJobScraper
+from src.scrapers.playwright_scraper import PlaywrightJobScraper
 
 
 async def test_scraper():

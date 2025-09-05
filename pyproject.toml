@@ -1,7 +1,7 @@
 [project]
 name = "job-search"
 version = "0.1.0"
-description = "Add your description here"
+description = "Houston Job Search RAG System"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -13,5 +13,14 @@ dependencies = [
     "pydantic>=2.0.0",
     "openai>=1.0.0",
     "chromadb>=0.4.0",
-    "numpy>=1.24.0"
+    "numpy>=1.24.0",
+    "gradio>=4.0.0"
 ]
+
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]

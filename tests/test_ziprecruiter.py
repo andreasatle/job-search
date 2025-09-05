@@ -1,6 +1,6 @@
 """Test script for ZipRecruiter scraper."""
 import asyncio
-from ziprecruiter_scraper import ZipRecruiterScraper
+from src.scrapers.ziprecruiter_scraper import ZipRecruiterScraper
 
 
 async def quick_test():

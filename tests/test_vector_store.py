@@ -4,9 +4,9 @@ import asyncio
 from datetime import datetime
 from dotenv import load_dotenv
 
-from job_vector_store import JobVectorStore
-from job_models import JobListing, JobType, RemoteType
-from ziprecruiter_scraper import ZipRecruiterScraper
+from src.database.job_vector_store import JobVectorStore
+from src.models.job_models import JobListing, JobType, RemoteType
+from src.scrapers.ziprecruiter_scraper import ZipRecruiterScraper
 
 # Load environment variables from .env file
 load_dotenv()

@@ -5,8 +5,8 @@ from typing import List, Optional
 from urllib.parse import urljoin, quote_plus
 from datetime import datetime, timedelta
 
-from playwright_scraper import PlaywrightJobScraper
-from job_models import JobListing, JobType, RemoteType, ScrapingResult
+from .playwright_scraper import PlaywrightJobScraper
+from ..models.job_models import JobListing, JobType, RemoteType, ScrapingResult
 
 
 class ZipRecruiterScraper(PlaywrightJobScraper):

@@ -5,9 +5,9 @@ from datetime import datetime
 from typing import List, Dict, Any
 from dotenv import load_dotenv
 
-from ziprecruiter_scraper import ZipRecruiterScraper
-from job_vector_store import JobVectorStore
-from job_models import JobListing
+from ..scrapers.ziprecruiter_scraper import ZipRecruiterScraper
+from .job_vector_store import JobVectorStore
+from ..models.job_models import JobListing
 
 # Load environment variables from .env file
 load_dotenv()

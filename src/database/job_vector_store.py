@@ -12,7 +12,7 @@ from chromadb.config import Settings
 import openai
 from openai import OpenAI
 
-from job_models import JobListing, ScrapingResult
+from ..models.job_models import JobListing, ScrapingResult
 
 # Load environment variables from .env file
 load_dotenv()
