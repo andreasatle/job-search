@@ -4,6 +4,7 @@ RemoteOK job scraper for remote startup/tech positions.
 
 import asyncio
 import re
+import random
 from typing import List, Optional
 from playwright.async_api import async_playwright
 
@@ -14,10 +15,15 @@ from ..job import Job
 class RemoteOKScraper(JobScraper):
     """RemoteOK job scraper for remote startup/tech positions."""
     
-    def __init__(self, headless: bool = True):
+    def __init__(self, headless: bool = True, delay_between_requests: float = 2.0):
         super().__init__(headless)
         self.base_url = "https://remoteok.io"
         self.site_name = "RemoteOK"
+        # Cache to avoid re-scraping the same job detail pages
+        self._scraped_urls = {}  # url -> full_description mapping
+        self._scrape_stats = {"cache_hits": 0, "new_scrapes": 0}
+        # Delay between requests to avoid rate limiting
+        self.delay_between_requests = delay_between_requests
     
     def _build_search_url(self, query: str, location: str) -> str:
         """Build RemoteOK search URL."""
@@ -35,14 +41,36 @@ class RemoteOKScraper(JobScraper):
             browser = await p.chromium.launch(headless=self.headless)
             page = await browser.new_page()
             
+            # Set a more reasonable default timeout
+            page.set_default_timeout(20000)
+            
+            # Set a realistic user agent to avoid being blocked
+            await page.set_extra_http_headers({
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            })
+            
             try:
                 # Build search URL
                 search_url = self._build_search_url(query, location)
                 print(f"📡 URL: {search_url}")
                 
-                # Navigate to search results
-                await page.goto(search_url, wait_until='networkidle')
-                await page.wait_for_timeout(2000)
+                # Navigate to search results with simple, reliable approach
+                print("🌐 Loading search page...")
+                
+                # Add a small initial delay to avoid seeming too eager
+                await page.wait_for_timeout(1000)
+                
+                try:
+                    # Try simple approach first - just navigate without complex waiting
+                    await page.goto(search_url, timeout=25000)
+                    print("✅ Page loaded successfully")
+                    
+                    # Give page time to render content
+                    await page.wait_for_timeout(3000)
+                    
+                except Exception as e:
+                    print(f"❌ Page load failed completely: {e}")
+                    return []
                 
                 # RemoteOK job selectors - they use a table structure
                 job_cards = []
@@ -89,6 +117,18 @@ class RemoteOKScraper(JobScraper):
                     for i, job in enumerate(basic_jobs):
                         if job.url:
                             try:
+                                # Check if this will be a cache hit to avoid unnecessary delay
+                                is_cache_hit = job.url in self._scraped_urls
+                                
+                                # Add random delay between requests to avoid rate limiting (but not for cache hits)
+                                if i > 0 and not is_cache_hit:
+                                    # Random delay between 50% and 100% of the configured delay
+                                    min_delay = self.delay_between_requests * 0.5
+                                    max_delay = self.delay_between_requests
+                                    actual_delay = random.uniform(min_delay, max_delay)
+                                    print(f"⏳ Waiting {actual_delay:.1f}s to avoid rate limiting...")
+                                    await asyncio.sleep(actual_delay)
+                                
                                 full_description = await self._get_full_description(page, job.url)
                                 if full_description:
                                     # Create new job with full description
@@ -212,15 +252,30 @@ class RemoteOKScraper(JobScraper):
     
     async def _get_full_description(self, page, job_url: str) -> Optional[str]:
         """Navigate to job detail page and extract full description."""
+        
+        # Check cache first to avoid re-scraping
+        if job_url in self._scraped_urls:
+            self._scrape_stats["cache_hits"] += 1
+            print(f"💾 Using cached description for {job_url}")
+            return self._scraped_urls[job_url]
+        
         try:
+            self._scrape_stats["new_scrapes"] += 1
             print(f"📝 Fetching full description from {job_url}")
             
-            # Navigate and wait for initial load (same as aggressive debug)
-            await page.goto(job_url, wait_until='domcontentloaded')
-            
-            # Wait for all network activity to finish
-            await page.wait_for_load_state('networkidle')
-            await page.wait_for_load_state('load')
+            # Navigate and wait for initial load with timeouts
+            try:
+                await page.goto(job_url, wait_until='domcontentloaded', timeout=15000)
+                
+                # Try to wait for network activity to finish, but don't fail on timeout
+                try:
+                    await page.wait_for_load_state('networkidle', timeout=8000)
+                    await page.wait_for_load_state('load', timeout=5000)
+                except:
+                    print("📄 Page loading timeout, continuing with available content...")
+            except Exception as e:
+                print(f"⚠️  Job page navigation failed: {e}")
+                return None
             
             # Scroll to trigger lazy loading
             await page.evaluate('window.scrollTo(0, document.body.scrollHeight)')
@@ -245,6 +300,8 @@ class RemoteOKScraper(JobScraper):
             # First try: Extract meta tags (cleanest approach)
             meta_description = await self._extract_meta_tags(page)
             if meta_description:
+                # Cache the result before returning
+                self._scraped_urls[job_url] = meta_description
                 return meta_description
             
             # Second try: Use the specific selectors we found in aggressive debug
@@ -329,13 +386,43 @@ class RemoteOKScraper(JobScraper):
                 full_description = full_description.strip()
                 
                 if len(full_description) > 20:  # Only return if we have substantial content
+                    # Cache the result before returning
+                    self._scraped_urls[job_url] = full_description
                     return full_description
             
+            # Cache None result to avoid retrying failed URLs
+            self._scraped_urls[job_url] = None
             return None
             
         except Exception as e:
             print(f"⚠️  Error fetching full description: {e}")
+            # Cache None result to avoid retrying failed URLs
+            self._scraped_urls[job_url] = None
             return None
+    
+    def get_cache_stats(self) -> dict:
+        """Get statistics about URL caching to show efficiency gains."""
+        total_requests = self._scrape_stats["cache_hits"] + self._scrape_stats["new_scrapes"]
+        if total_requests > 0:
+            cache_hit_rate = (self._scrape_stats["cache_hits"] / total_requests) * 100
+        else:
+            cache_hit_rate = 0
+            
+        return {
+            "cache_hits": self._scrape_stats["cache_hits"],
+            "new_scrapes": self._scrape_stats["new_scrapes"],
+            "total_urls_cached": len(self._scraped_urls),
+            "cache_hit_rate": cache_hit_rate
+        }
+    
+    def print_cache_stats(self):
+        """Print cache statistics for debugging."""
+        stats = self.get_cache_stats()
+        print(f"📊 Scraping efficiency stats:")
+        print(f"   💾 Cache hits: {stats['cache_hits']}")
+        print(f"   🆕 New scrapes: {stats['new_scrapes']}")
+        print(f"   🗄️  URLs cached: {stats['total_urls_cached']}")
+        print(f"   ⚡ Cache hit rate: {stats['cache_hit_rate']:.1f}%")
     
     async def _extract_meta_tags(self, page) -> Optional[str]:
         """Extract job description from meta tags (cleanest approach)."""

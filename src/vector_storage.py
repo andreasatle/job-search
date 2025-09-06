@@ -206,33 +206,73 @@ class JobVectorDB:
 
 
 # Simple test function
-def test_vector_db():
-    """Test the vector database with sample data."""
-    print("🧪 Testing Vector Database")
+def main():
+    """Main function with argparse for vector database operations."""
+    import argparse
     
-    # Create test job
-    test_job = Job(
-        title="Senior LLM Engineer",
-        company="AI Startup",
-        location="Remote",
-        description="Work on large language models and generative AI systems",
-        url="https://example.com/job/123",
-        salary="$120k-$180k",
-        remote=True
+    parser = argparse.ArgumentParser(
+        description="Vector Database Operations for Job Search",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  %(prog)s --stats                                    # Show database statistics
+  %(prog)s --stats --db-path ./my_vector_db          # Stats for specific database
+  %(prog)s --test-job                                 # Add a test job to database
+  %(prog)s --test-job --db-path ./test_db             # Add test job to specific database
+        """
     )
     
+    parser.add_argument(
+        "--db-path",
+        type=str,
+        default="./job_vector_db",
+        help="Path to vector database directory (default: ./job_vector_db)"
+    )
+    
+    parser.add_argument(
+        "--stats",
+        action="store_true",
+        help="Show database statistics"
+    )
+    
+    parser.add_argument(
+        "--test-job",
+        action="store_true", 
+        help="Add a test job to the database"
+    )
+    
+    args = parser.parse_args()
+    
     # Initialize database
-    db = JobVectorDB(db_path="./test_vector_db")
+    db = JobVectorDB(db_path=args.db_path)
+    print(f"🔗 Using vector database at: {args.db_path}")
     
-    # Add job
-    db.add_job(test_job)
+    if args.test_job:
+        # Create a test job
+        test_job = Job(
+            title="Senior LLM Engineer",
+            company="AI Startup",
+            location="Remote",
+            description="Work on large language models and generative AI systems",
+            url="https://example.com/job/123",
+            salary="$120k-$180k",
+            remote=True
+        )
+        
+        print("➕ Adding test job to database...")
+        db.add_job(test_job)
+        print("✅ Test job added successfully")
     
-    # Get stats
-    stats = db.get_stats()
-    print("📊 Database Stats:")
-    for key, value in stats.items():
-        print(f"   {key}: {value}")
+    if args.stats or args.test_job:
+        # Show stats (always show after adding test job)
+        stats = db.get_stats()
+        print("\n📊 Database Statistics:")
+        for key, value in stats.items():
+            print(f"   📋 {key}: {value}")
+    
+    if not args.stats and not args.test_job:
+        parser.print_help()
 
 
 if __name__ == "__main__":
-    test_vector_db()
+    main()

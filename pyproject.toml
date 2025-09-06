@@ -35,3 +35,7 @@ scraper-demo = "src.scraper:main"
 queries-demo = "src.queries:main"
 list-queries = "src.queries:main"
 
+# Vector database management
+vectordb = "src.vector_storage:main"
+vector-stats = "src.vector_storage:main"
+

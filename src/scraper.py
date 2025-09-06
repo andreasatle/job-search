@@ -22,26 +22,26 @@ from .vector_storage import JobVectorDB
 
 
 # Main quick search function
-async def quick_search(query: str = "software engineer", max_jobs: int = 5) -> List[Job]:
+async def quick_search(query: str = "software engineer", max_jobs: int = 5, delay: float = 2.0) -> List[Job]:
     """Quick job search function using RemoteOK scraper with full descriptions."""
-    scraper = RemoteOKScraper()
+    scraper = RemoteOKScraper(delay_between_requests=delay)
     return await scraper.search_jobs(query, max_jobs=max_jobs)
 
 
 # Enhanced search functions using predefined queries
-async def search_with_random_query(max_jobs: int = 5) -> List[Job]:
+async def search_with_random_query(max_jobs: int = 5, delay: float = 2.0) -> List[Job]:
     """Search using a random query from any category."""
     query = get_random_query()
     print(f"🎲 Using random query: '{query}'")
-    return await quick_search(query, max_jobs=max_jobs)
+    return await quick_search(query, max_jobs=max_jobs, delay=delay)
 
 
-async def search_by_category(category: str, max_jobs: int = 5) -> List[Job]:
+async def search_by_category(category: str, max_jobs: int = 5, delay: float = 2.0) -> List[Job]:
     """Search using a random query from a specific category."""
     try:
         query = get_random_query_from_set(category)
         print(f"🎯 Using query from '{category}': '{query}'")
-        return await quick_search(query, max_jobs=max_jobs)
+        return await quick_search(query, max_jobs=max_jobs, delay=delay)
     except ValueError as e:
         print(f"❌ {e}")
         print(f"Available categories: {list_query_sets()}")
@@ -117,19 +117,25 @@ async def exhaustive_search(max_jobs_per_query: int = 10) -> List[Job]:
     
     print(f"🔥 EXHAUSTIVE SEARCH: Running ALL {len(all_queries)} queries")
     print(f"📊 Target: Up to {max_jobs_per_query} jobs per query = {len(all_queries) * max_jobs_per_query} total jobs")
-    print("⚠️  This will take a while but gives maximum coverage!\n")
+    print("⚠️  This will take a while but gives maximum coverage!")
+    print("💾 Using URL cache to avoid re-scraping duplicate job pages\n")
+    
+    # Use a single scraper instance to maintain cache across all queries  
+    scraper = RemoteOKScraper(delay_between_requests=3.0)  # Longer delay for exhaustive search
     
     for i, query in enumerate(all_queries, 1):
         print(f"🔍 Query {i:2d}/{len(all_queries)}: '{query}'")
         
         try:
-            jobs = await quick_search(query, max_jobs=max_jobs_per_query)
+            jobs = await scraper.search_jobs(query, max_jobs=max_jobs_per_query)
             all_jobs.extend(jobs)
             print(f"   ✅ Found {len(jobs)} jobs")
             
-            # Show progress every 5 queries
+            # Show progress and cache stats every 5 queries
             if i % 5 == 0:
-                print(f"   📊 Progress: {i}/{len(all_queries)} queries complete, {len(all_jobs)} total jobs so far\n")
+                print(f"   📊 Progress: {i}/{len(all_queries)} queries complete, {len(all_jobs)} total jobs so far")
+                scraper.print_cache_stats()
+                print()
                 
         except Exception as e:
             print(f"   ❌ Error with query '{query}': {e}")
@@ -152,6 +158,10 @@ async def exhaustive_search(max_jobs_per_query: int = 10) -> List[Job]:
     print(f"📊 Total jobs found: {len(all_jobs)}")
     print(f"🔗 Unique jobs: {len(unique_jobs)}")
     print(f"♻️  Duplicates removed: {len(all_jobs) - len(unique_jobs)}")
+    
+    # Show final cache efficiency stats
+    print(f"\n💾 Final scraping efficiency:")
+    scraper.print_cache_stats()
     
     return unique_jobs
 
@@ -252,6 +262,12 @@ Note: Jobs are saved to vector database by default. Use --dry-run to skip saving
         default=2,
         help="Max jobs per category for comprehensive search (default: 2)"
     )
+    parser.add_argument(
+        "--delay",
+        type=float,
+        default=2.0,
+        help="Maximum delay in seconds between job page requests (actual delay is random 50-100% of this value) (default: 2.0)"
+    )
     
     # Output options
     parser.add_argument(
@@ -287,15 +303,15 @@ async def run_search(args):
     
     if args.query:
         print(f"🔍 Searching for: '{args.query}'")
-        jobs = await quick_search(args.query, max_jobs=args.max_jobs)
+        jobs = await quick_search(args.query, max_jobs=args.max_jobs, delay=args.delay)
         
     elif args.random:
         print("🎲 Running random query search")
-        jobs = await search_with_random_query(max_jobs=args.max_jobs)
+        jobs = await search_with_random_query(max_jobs=args.max_jobs, delay=args.delay)
         
     elif args.category:
         print(f"🎯 Searching category: '{args.category}'")
-        jobs = await search_by_category(args.category, max_jobs=args.max_jobs)
+        jobs = await search_by_category(args.category, max_jobs=args.max_jobs, delay=args.delay)
         
     elif args.comprehensive:
         print("🚀 Running comprehensive search across all categories")
