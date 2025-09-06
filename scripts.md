@@ -19,20 +19,22 @@ uv run python -m src.scraper --list-queries
 ```
 
 ### Basic Searches
+**Note: Jobs are automatically saved to vector database by default**
+
 ```bash
-# Search for specific query
+# Search for specific query (saves to DB)
 uv run python -m src.scraper --query "LLM engineer" --max-jobs 10
 
-# Random query from any category
+# Random query from any category (saves to DB)
 uv run python -m src.scraper --random --max-jobs 5
 
-# Search specific category
+# Search specific category (saves to DB)
 uv run python -m src.scraper --category "Core LLM / Generative AI" --max-jobs 8
 
-# Multiple specific queries
+# Multiple specific queries (saves to DB)
 uv run python -m src.scraper --multiple "LLM engineer" "RAG engineer" --max-jobs-per-query 4
 
-# Comprehensive search (one from each category)
+# Comprehensive search - best for building database
 uv run python -m src.scraper --comprehensive --max-jobs-per-category 3
 ```
 
@@ -44,8 +46,11 @@ uv run python -m src.scraper --query "Python AI engineer" --brief
 # Just show counts, no job details
 uv run python -m src.scraper --random --no-display
 
-# Normal detailed output (default)
-uv run python -m src.scraper --query "LLM scientist" --max-jobs 5
+# Dry run - don't save to database (just search and display)
+uv run python -m src.scraper --query "LLM scientist" --dry-run
+
+# Check vector database statistics
+uv run python -m src.scraper --vectordb-stats
 ```
 
 ### Other Module Tests

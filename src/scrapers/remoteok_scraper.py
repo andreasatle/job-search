@@ -186,20 +186,8 @@ class RemoteOKScraper(JobScraper):
                     else:
                         url = relative_url
             
-            # Get salary - RemoteOK often shows salary in USD
+            # Skip salary extraction - it will be in the description if present
             salary = None
-            salary_patterns = [
-                r'\$[\d,]+\s*-\s*\$[\d,]+',  # Range like $80k-$120k
-                r'\$[\d,]+[kK]?\+?',         # Single value like $100k+
-                r'[\d,]+[kK]\s*-\s*[\d,]+[kK]',  # K format like 80k-120k
-                r'\$[\d,]+(?:\.\d{2})?'      # Exact dollar amounts
-            ]
-            
-            for pattern in salary_patterns:
-                salary_match = re.search(pattern, text_content)
-                if salary_match:
-                    salary = salary_match.group(0)
-                    break
             
             # All RemoteOK jobs are remote by definition
             remote = True
@@ -380,6 +368,4 @@ class RemoteOKScraper(JobScraper):
             print(f"⚠️  Error extracting meta tags: {e}")
             return None
 
-
-# RemoteOK scraper implementation complete
 
