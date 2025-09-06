@@ -381,20 +381,5 @@ class RemoteOKScraper(JobScraper):
             return None
 
 
-def main():
-    """Main entry point for testing RemoteOK scraper."""
-    async def test():
-        print("🚀 Testing RemoteOK Scraper")
-        scraper = RemoteOKScraper()
-        jobs = await scraper.search_jobs("python developer", max_jobs=5)
-        print(f"\n📊 Found {len(jobs)} jobs:")
-        for i, job in enumerate(jobs, 1):
-            print(f"{i}.")
-            job.display()
-    
-    asyncio.run(test())
-
-
-if __name__ == "__main__":
-    main()
+# RemoteOK scraper implementation complete
 

@@ -35,8 +35,3 @@ scraper-demo = "src.scraper:main"
 queries-demo = "src.queries:main"
 list-queries = "src.queries:main"
 
-# Individual scrapers
-remoteok-test = "src.scrapers.remoteok_scraper:main"
-
-# UV aliases - these are run with "uv run <alias>"
-# Use "uv run python -m src.scraper" directly instead

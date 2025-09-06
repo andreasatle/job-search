@@ -4,16 +4,57 @@ This document lists all available scripts you can run with your job search syste
 
 ## 🚀 Quick Start Commands
 
-### Main Demo Scripts
-```bash
-# Run the full demo with all search types
-uv run python -m src.scraper
+### Command-Line Interface
+The main scraper now uses argparse for flexible command-line usage:
 
+```bash
+# Show help and all available options
+uv run python -m src.scraper --help
+
+# List all available query categories
+uv run python -m src.scraper --list-categories
+
+# List all 31 available queries
+uv run python -m src.scraper --list-queries
+```
+
+### Basic Searches
+```bash
+# Search for specific query
+uv run python -m src.scraper --query "LLM engineer" --max-jobs 10
+
+# Random query from any category
+uv run python -m src.scraper --random --max-jobs 5
+
+# Search specific category
+uv run python -m src.scraper --category "Core LLM / Generative AI" --max-jobs 8
+
+# Multiple specific queries
+uv run python -m src.scraper --multiple "LLM engineer" "RAG engineer" --max-jobs-per-query 4
+
+# Comprehensive search (one from each category)
+uv run python -m src.scraper --comprehensive --max-jobs-per-category 3
+```
+
+### Output Options
+```bash
+# Brief output (title, company, preview)
+uv run python -m src.scraper --query "Python AI engineer" --brief
+
+# Just show counts, no job details
+uv run python -m src.scraper --random --no-display
+
+# Normal detailed output (default)
+uv run python -m src.scraper --query "LLM scientist" --max-jobs 5
+```
+
+### Other Module Tests
+```bash
 # Show all available queries organized by category
 uv run python -m src.queries
 
-# Test RemoteOK scraper individually
-uv run python -m src.scrapers.remoteok_scraper
+# Test specific query (replaces individual scraper test)
+uv run python -m src.scraper --query "python developer" --max-jobs 5
 ```
 
 ## 🎯 Specific Search Types
