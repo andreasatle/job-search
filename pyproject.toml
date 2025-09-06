@@ -25,3 +25,18 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["src*"]
+
+[project.scripts]
+# Main scraper commands
+job-search = "src.scraper:main"
+scraper-demo = "src.scraper:main"
+
+# Query management
+queries-demo = "src.queries:main"
+list-queries = "src.queries:main"
+
+# Individual scrapers
+remoteok-test = "src.scrapers.remoteok_scraper:main"
+
+# UV aliases - these are run with "uv run <alias>"
+# Use "uv run python -m src.scraper" directly instead
